@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tres en Raya - Tic Tac Toe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-background">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+  </div>
+
+  <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
+
+  <main class="game-wrapper">
+    <!-- Header -->
+    <header class="game-header">
+      <div class="header-content">
+        <h1 class="game-title">
+          <span class="letter-x">TRES</span> EN <span class="letter-o">RAYA</span>
+        </h1>
+        <p class="game-subtitle">El clásico Tic-Tac-Toe reinventado</p>
+      </div>
+
+      <div class="header-actions">
+        <button id="sound-toggle-btn" class="icon-btn" aria-label="Activar o desactivar sonido" title="Sonido: Activado">
+          <span class="icon-sound-on" aria-hidden="true">🔊</span>
+          <span class="icon-sound-off hidden" aria-hidden="true">🔇</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Game Settings -->
+    <section class="game-config" aria-label="Configuración de la partida">
+      <div class="segmented-control mode-selector" role="group" aria-label="Modo de juego">
+        <button id="mode-pve-btn" class="segment-btn active" data-mode="pve">
+          <span class="btn-icon">🤖</span> 1 Jugador
+        </button>
+        <button id="mode-pvp-btn" class="segment-btn" data-mode="pvp">
+          <span class="btn-icon">👥</span> 2 Jugadores
+        </button>
+      </div>
+
+      <div id="difficulty-wrapper" class="difficulty-control">
+        <label for="difficulty-select" class="config-label">Dificultad IA:</label>
+        <div class="select-wrapper">
+          <select id="difficulty-select" class="styled-select" aria-label="Nivel de dificultad de la inteligencia artificial">
+            <option value="easy">Fácil (Principiante)</option>
+            <option value="medium">Media (Intermedio)</option>
+            <option value="hard" selected>Imposible (Minimax 🔥)</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scoreboard -->
+    <section class="scoreboard" aria-label="Marcador">
+      <div id="card-player-x" class="score-card player-x active-turn" aria-label="Puntos de Jugador X">
+        <div class="player-info">
+          <span class="player-symbol symbol-x">✕</span>
+          <span id="player-x-name" class="player-label">Jugador X</span>
+        </div>
+        <div id="score-x" class="score-value">0</div>
+        <div class="turn-indicator">Su turno</div>
+      </div>
+
+      <div class="score-card tie-card" aria-label="Partidas empatadas">
+        <div class="player-info">
+          <span class="tie-symbol">🤝</span>
+          <span class="player-label">Empates</span>
+        </div>
+        <div id="score-ties" class="score-value">0</div>
+      </div>
+
+      <div id="card-player-o" class="score-card player-o" aria-label="Puntos de Jugador O">
+        <div class="player-info">
+          <span class="player-symbol symbol-o">◯</span>
+          <span id="player-o-name" class="player-label">IA (O)</span>
+        </div>
+        <div id="score-o" class="score-value">0</div>
+        <div class="turn-indicator">Su turno</div>
+      </div>
+    </section>
+
+    <!-- Status Alert Banner -->
+    <div id="status-banner" class="status-banner" role="status" aria-live="polite">
+      <span id="status-text">¡Turno de las X! Haz tu movimiento</span>
+    </div>
+
+    <!-- Board Container -->
+    <section class="board-container" aria-label="Tablero de juego">
+      <div id="board" class="board" role="grid" aria-label="Tablero de 3 por 3 casillas">
+        <button class="cell" data-index="0" role="gridcell" aria-label="Casilla 1, fila 1 columna 1"></button>
+        <button class="cell" data-index="1" role="gridcell" aria-label="Casilla 2, fila 1 columna 2"></button>
+        <button class="cell" data-index="2" role="gridcell" aria-label="Casilla 3, fila 1 columna 3"></button>
+        <button class="cell" data-index="3" role="gridcell" aria-label="Casilla 4, fila 2 columna 1"></button>
+        <button class="cell" data-index="4" role="gridcell" aria-label="Casilla 5, fila 2 columna 2"></button>
+        <button class="cell" data-index="5" role="gridcell" aria-label="Casilla 6, fila 2 columna 3"></button>
+        <button class="cell" data-index="6" role="gridcell" aria-label="Casilla 7, fila 3 columna 1"></button>
+        <button class="cell" data-index="7" role="gridcell" aria-label="Casilla 8, fila 3 columna 2"></button>
+        <button class="cell" data-index="8" role="gridcell" aria-label="Casilla 9, fila 3 columna 3"></button>
+
+        <!-- SVG overlay for winning stroke line -->
+        <svg id="strike-svg" class="strike-svg" viewBox="0 0 300 300" aria-hidden="true">
+          <line id="strike-line" x1="0" y1="0" x2="0" y2="0" class="strike-line"></line>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Control Actions -->
+    <footer class="game-controls">
+      <button id="restart-round-btn" class="action-btn primary-btn">
+        <span class="btn-icon">🔄</span> Nueva Ronda
+      </button>
+      <button id="reset-all-btn" class="action-btn secondary-btn">
+        <span class="btn-icon">🗑️</span> Reiniciar Marcador
+      </button>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
