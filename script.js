@@ -1,6 +1,6 @@
 /**
- * TRES EN RAYA - TIC TAC TOE
- * Arquitectura modular: SoundFx, ConfettiFx, AIEngine, GameState & UIController
+ * TRES EN RAYA - TIC TAC TOE CON PERSISTENCIA EN SUPABASE
+ * Arquitectura modular: SoundController, ConfettiController, AIEngine, TicTacToeGame & ModalController
  */
 
 // ==========================================
@@ -9,7 +9,7 @@
 class SoundController {
   constructor() {
     this.audioCtx = null;
-    this.isMuted = localStorage.getItem('tres_en_raya_muted') === 'true';
+    this.isMuted = typeof localStorage !== 'undefined' && localStorage.getItem('tres_en_raya_muted') === 'true';
   }
 
   init() {
@@ -26,7 +26,9 @@ class SoundController {
 
   toggleMute() {
     this.isMuted = !this.isMuted;
-    localStorage.setItem('tres_en_raya_muted', this.isMuted);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('tres_en_raya_muted', this.isMuted);
+    }
     return this.isMuted;
   }
 
@@ -90,7 +92,7 @@ class SoundController {
 // ==========================================
 class ConfettiController {
   constructor(canvasId) {
-    this.canvas = document.getElementById(canvasId);
+    this.canvas = typeof document !== 'undefined' ? document.getElementById(canvasId) : null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
     this.particles = [];
     this.animationId = null;
@@ -220,12 +222,12 @@ class AIEngine {
     return available[Math.floor(Math.random() * available.length)];
   }
 
-  // Nivel Medio: busca ganar o bloquear, de lo contrario movimiento aleatorio/estratégico
+  // Nivel Medio: busca ganar o bloquear
   static getMediumMove(board, aiPlayer = 'O', humanPlayer = 'X') {
     const available = this.getAvailableMoves(board);
     if (available.length === 0) return null;
 
-    // 1. ¿Puede la IA ganar en este turno?
+    // 1. Ganar en este turno
     for (const move of available) {
       const copy = [...board];
       copy[move] = aiPlayer;
@@ -235,7 +237,7 @@ class AIEngine {
       }
     }
 
-    // 2. ¿El humano puede ganar en el siguiente turno? Bloquear
+    // 2. Bloquear al humano
     for (const move of available) {
       const copy = [...board];
       copy[move] = humanPlayer;
@@ -245,21 +247,20 @@ class AIEngine {
       }
     }
 
-    // 3. Tomar el centro con 60% de probabilidad si está libre
+    // 3. Tomar el centro con 60% probabilidad
     if (board[4] === null && Math.random() < 0.6) {
       return 4;
     }
 
-    // 4. Si no, movimiento aleatorio
+    // 4. Si no, aleatorio
     return this.getEasyMove(board);
   }
 
-  // Nivel Imposible: Algoritmo Minimax Invencible
+  // Nivel Imposible: Minimax invencible
   static getBestMove(board, aiPlayer = 'O', humanPlayer = 'X') {
     const available = this.getAvailableMoves(board);
     if (available.length === 0) return null;
 
-    // Si el tablero está completamente vacío, elegir el centro o esquina para rapidez
     if (available.length === 9) {
       const openings = [0, 2, 4, 6, 8];
       return openings[Math.floor(Math.random() * openings.length)];
@@ -320,7 +321,7 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // ==========================================
-// 4. CONTROLADOR DEL JUEGO Y DE LA INTERFAZ
+// 4. CONTROLADOR DEL JUEGO Y MODALES
 // ==========================================
 class TicTacToeGame {
   constructor() {
@@ -332,28 +333,53 @@ class TicTacToeGame {
     this.isAiThinking = false;
     this.scores = this.loadScores();
 
+    // Metadatos de la partida para Supabase
+    this.matchStartTime = null;
+    this.movesHistory = [];
+    this.totalMoves = 0;
+    this.playerName = this.loadPlayerName();
+
     this.sound = new SoundController();
     this.confetti = new ConfettiController('confetti-canvas');
 
     this.initDOM();
     this.bindEvents();
     this.updateUI();
+    this.initSupabaseState();
   }
 
   loadScores() {
+    if (typeof localStorage === 'undefined') return { x: 0, o: 0, ties: 0 };
     const saved = localStorage.getItem('tres_en_raya_scores');
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch {
-        // Fallback a nuevo objeto
+        // Fallback
       }
     }
     return { x: 0, o: 0, ties: 0 };
   }
 
   saveScores() {
-    localStorage.setItem('tres_en_raya_scores', JSON.stringify(this.scores));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('tres_en_raya_scores', JSON.stringify(this.scores));
+    }
+  }
+
+  loadPlayerName() {
+    if (typeof localStorage === 'undefined') return 'Jugador 1';
+    return (localStorage.getItem('tres_en_raya_nickname') || 'Jugador 1').trim();
+  }
+
+  savePlayerName(name) {
+    this.playerName = (name || 'Jugador 1').trim();
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('tres_en_raya_nickname', this.playerName);
+    }
+    if (this.playerXName) {
+      this.playerXName.textContent = this.playerName;
+    }
   }
 
   initDOM() {
@@ -366,7 +392,9 @@ class TicTacToeGame {
     this.scoreX = document.getElementById('score-x');
     this.scoreO = document.getElementById('score-o');
     this.scoreTies = document.getElementById('score-ties');
+    this.playerXName = document.getElementById('player-x-name');
     this.playerOName = document.getElementById('player-o-name');
+    this.playerNameInput = document.getElementById('player-name-input');
 
     this.modePveBtn = document.getElementById('mode-pve-btn');
     this.modePvpBtn = document.getElementById('mode-pvp-btn');
@@ -383,11 +411,39 @@ class TicTacToeGame {
     this.strikeSvg = document.getElementById('strike-svg');
     this.strikeLine = document.getElementById('strike-line');
 
+    // Botones e Indicadores de Supabase
+    this.dbStatusBtn = document.getElementById('db-status-btn');
+    this.dbStatusLabel = document.getElementById('db-status-label');
+    this.btnLeaderboard = document.getElementById('btn-leaderboard');
+    this.btnHistory = document.getElementById('btn-history');
+
+    // Modales
+    this.modalLeaderboard = document.getElementById('modal-leaderboard');
+    this.modalHistory = document.getElementById('modal-history');
+    this.modalConfig = document.getElementById('modal-supabase-config');
+    this.leaderboardContent = document.getElementById('leaderboard-content');
+    this.historyContent = document.getElementById('history-content');
+
+    // Formulario de Configuración Supabase
+    this.cfgUrlInput = document.getElementById('cfg-supabase-url');
+    this.cfgKeyInput = document.getElementById('cfg-supabase-key');
+    this.btnTestDb = document.getElementById('btn-test-db');
+    this.btnSaveDb = document.getElementById('btn-save-db');
+    this.btnDisconnectDb = document.getElementById('btn-disconnect-db');
+    this.dbFeedbackMsg = document.getElementById('db-feedback-msg');
+
+    if (this.playerNameInput) {
+      this.playerNameInput.value = this.playerName;
+    }
+    if (this.playerXName) {
+      this.playerXName.textContent = this.playerName;
+    }
+
     this.updateSoundIcon();
   }
 
   bindEvents() {
-    // Eventos de Casillas
+    // Casillas
     this.cells.forEach(cell => {
       cell.addEventListener('click', () => {
         const index = parseInt(cell.getAttribute('data-index'), 10);
@@ -395,25 +451,32 @@ class TicTacToeGame {
       });
     });
 
+    // Nickname
+    if (this.playerNameInput) {
+      this.playerNameInput.addEventListener('input', (e) => {
+        this.savePlayerName(e.target.value);
+      });
+    }
+
     // Selector de modo
     this.modePveBtn.addEventListener('click', () => this.setMode('pve'));
     this.modePvpBtn.addEventListener('click', () => this.setMode('pvp'));
 
-    // Selector de dificultad
+    // Dificultad
     this.difficultySelect.addEventListener('change', (e) => {
       this.difficulty = e.target.value;
       this.sound.playClick();
       this.restartRound();
     });
 
-    // Controles de audio
+    // Sonido
     this.soundBtn.addEventListener('click', () => {
       const isMuted = this.sound.toggleMute();
       this.updateSoundIcon();
       if (!isMuted) this.sound.playClick();
     });
 
-    // Botones de acción
+    // Acciones de ronda
     this.restartRoundBtn.addEventListener('click', () => {
       this.sound.playClick();
       this.restartRound();
@@ -423,7 +486,273 @@ class TicTacToeGame {
       this.sound.playClick();
       this.resetAll();
     });
+
+    // Botones de Modales
+    this.dbStatusBtn.addEventListener('click', () => this.openModal(this.modalConfig));
+    this.btnLeaderboard.addEventListener('click', () => {
+      this.sound.playClick();
+      this.openLeaderboardModal();
+    });
+    this.btnHistory.addEventListener('click', () => {
+      this.sound.playClick();
+      this.openHistoryModal();
+    });
+
+    // Cierre de Modales
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const modalId = btn.getAttribute('data-close');
+        const modal = document.getElementById(modalId);
+        if (modal) this.closeModal(modal);
+      });
+    });
+
+    // Cerrar al hacer clic en el backdrop
+    [this.modalLeaderboard, this.modalHistory, this.modalConfig].forEach(modal => {
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) this.closeModal(modal);
+        });
+      }
+    });
+
+    // Acciones de Configuración de Supabase
+    if (this.btnTestDb) {
+      this.btnTestDb.addEventListener('click', () => this.handleTestConnection());
+    }
+    if (this.btnSaveDb) {
+      this.btnSaveDb.addEventListener('click', () => this.handleSaveSupabaseConfig());
+    }
+    if (this.btnDisconnectDb) {
+      this.btnDisconnectDb.addEventListener('click', () => this.handleDisconnectSupabase());
+    }
   }
+
+  // --- INTEGRACIÓN Y MODALES DE SUPABASE ---
+
+  initSupabaseState() {
+    if (typeof SUPABASE_CONFIG !== 'undefined') {
+      if (this.cfgUrlInput) this.cfgUrlInput.value = SUPABASE_CONFIG.url || '';
+      if (this.cfgKeyInput) this.cfgKeyInput.value = SUPABASE_CONFIG.anonKey || '';
+    }
+
+    this.updateDbStatusBadge();
+
+    // Si hay credenciales configuradas, verificar en segundo plano
+    if (typeof supabaseGameClient !== 'undefined' && SUPABASE_CONFIG.isConfigured()) {
+      supabaseGameClient.testConnection().then(res => {
+        this.updateDbStatusBadge();
+      });
+    }
+  }
+
+  updateDbStatusBadge() {
+    if (!this.dbStatusBtn) return;
+    const isOnline = typeof supabaseGameClient !== 'undefined' && supabaseGameClient.isReady();
+
+    if (isOnline) {
+      this.dbStatusBtn.className = 'status-pill online';
+      this.dbStatusLabel.textContent = 'Supabase Activo';
+      this.dbStatusBtn.setAttribute('title', 'Conectado a PostgreSQL en Supabase. Clic para configurar');
+    } else {
+      this.dbStatusBtn.className = 'status-pill offline';
+      this.dbStatusLabel.textContent = 'Modo Local';
+      this.dbStatusBtn.setAttribute('title', 'Almacenamiento local activo. Clic para conectar Supabase');
+    }
+  }
+
+  openModal(modal) {
+    if (!modal) return;
+    modal.classList.remove('hidden');
+  }
+
+  closeModal(modal) {
+    if (!modal) return;
+    modal.classList.add('hidden');
+    if (this.dbFeedbackMsg) this.dbFeedbackMsg.className = 'feedback-box hidden';
+  }
+
+  async openLeaderboardModal() {
+    this.openModal(this.modalLeaderboard);
+    this.leaderboardContent.innerHTML = '<div class="loading-spinner">Cargando clasificación...</div>';
+
+    if (typeof supabaseGameClient === 'undefined') {
+      this.leaderboardContent.innerHTML = '<div class="empty-state">Módulo de datos no inicializado.</div>';
+      return;
+    }
+
+    const { data, source } = await supabaseGameClient.getLeaderboard(15);
+    const sourceLabel = source === 'supabase' ? '🟢 Supabase Cloud' : '🟡 Modo Local';
+    document.getElementById('leaderboard-subtitle').textContent = `Fuente: ${sourceLabel}`;
+
+    if (!data || data.length === 0) {
+      this.leaderboardContent.innerHTML = `
+        <div class="empty-state">
+          <p>No hay partidas registradas todavía.</p>
+          <small>¡Juega una partida para aparecer en el ranking!</small>
+        </div>
+      `;
+      return;
+    }
+
+    let rowsHtml = data.map((player, idx) => {
+      const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}`;
+      const isCurrent = player.player_name.toLowerCase() === this.playerName.toLowerCase();
+      return `
+        <tr class="${isCurrent ? 'player-highlight' : ''}">
+          <td><span class="rank-badge">${medal}</span></td>
+          <td><strong>${this.escapeHtml(player.player_name)}</strong></td>
+          <td>${player.games_played}</td>
+          <td><span style="color: var(--color-x); font-weight: 700;">${player.wins}</span></td>
+          <td><span class="win-rate-pill">${player.win_rate}%</span></td>
+          <td>${player.hard_ai_wins || 0}</td>
+        </tr>
+      `;
+    }).join('');
+
+    this.leaderboardContent.innerHTML = `
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Jugador</th>
+            <th>PJ</th>
+            <th>Victorias</th>
+            <th>% Efectividad</th>
+            <th>vs IA 🔥</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    `;
+  }
+
+  async openHistoryModal() {
+    this.openModal(this.modalHistory);
+    this.historyContent.innerHTML = '<div class="loading-spinner">Cargando historial...</div>';
+
+    if (typeof supabaseGameClient === 'undefined') {
+      this.historyContent.innerHTML = '<div class="empty-state">Módulo de datos no inicializado.</div>';
+      return;
+    }
+
+    const { data, source } = await supabaseGameClient.getRecentMatches(15);
+    const sourceLabel = source === 'supabase' ? '🟢 Supabase Cloud' : '🟡 Modo Local';
+    document.getElementById('history-subtitle').textContent = `Fuente: ${sourceLabel}`;
+
+    if (!data || data.length === 0) {
+      this.historyContent.innerHTML = `
+        <div class="empty-state">
+          <p>Aún no hay historial de partidas.</p>
+          <small>Completa una ronda para verla aquí.</small>
+        </div>
+      `;
+      return;
+    }
+
+    let cardsHtml = data.map(match => {
+      const dateStr = match.created_at ? new Date(match.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      let winnerLabel = '';
+      let winnerClass = '';
+
+      if (match.winner === 'tie') {
+        winnerLabel = 'Empate 🤝';
+        winnerClass = 'tie';
+      } else if (match.winner === 'X') {
+        winnerLabel = `Ganador: ${this.escapeHtml(match.player_x_name)} (X)`;
+        winnerClass = 'win-x';
+      } else {
+        winnerLabel = `Ganador: ${this.escapeHtml(match.player_o_name)} (O)`;
+        winnerClass = 'win-o';
+      }
+
+      const modeLabel = match.game_mode === 'pve'
+        ? `1P vs IA (${match.difficulty || 'Normal'})`
+        : '2P Local';
+
+      return `
+        <div class="history-card">
+          <div class="history-card-left">
+            <span class="match-players">${this.escapeHtml(match.player_x_name)} vs ${this.escapeHtml(match.player_o_name)}</span>
+            <span class="match-meta">${modeLabel} • ${match.total_moves} movs • ${match.duration_seconds || 0}s • ${dateStr}</span>
+          </div>
+          <span class="winner-tag ${winnerClass}">${winnerLabel}</span>
+        </div>
+      `;
+    }).join('');
+
+    this.historyContent.innerHTML = cardsHtml;
+  }
+
+  async handleTestConnection() {
+    const url = this.cfgUrlInput.value.trim();
+    const key = this.cfgKeyInput.value.trim();
+
+    if (!url || !key) {
+      this.showDbFeedback('Por favor ingresa la Project URL y la Anon Key de Supabase.', 'error');
+      return;
+    }
+
+    this.showDbFeedback('Probando conexión con Supabase...', 'success');
+    SUPABASE_CONFIG.saveCredentials(url, key);
+    const res = await supabaseGameClient.testConnection();
+
+    if (res.success) {
+      this.showDbFeedback(`✅ ${res.message}`, 'success');
+      this.updateDbStatusBadge();
+    } else {
+      this.showDbFeedback(`❌ ${res.message}`, 'error');
+      this.updateDbStatusBadge();
+    }
+  }
+
+  async handleSaveSupabaseConfig() {
+    const url = this.cfgUrlInput.value.trim();
+    const key = this.cfgKeyInput.value.trim();
+
+    if (!url || !key) {
+      this.showDbFeedback('Debes ingresar URL y Anon Key válidas.', 'error');
+      return;
+    }
+
+    SUPABASE_CONFIG.saveCredentials(url, key);
+    const res = await supabaseGameClient.testConnection();
+
+    if (res.success) {
+      this.showDbFeedback('✅ ¡Credenciales guardadas y conexión activa!', 'success');
+      this.updateDbStatusBadge();
+      setTimeout(() => this.closeModal(this.modalConfig), 1200);
+    } else {
+      this.showDbFeedback(`⚠️ Guardado, pero con advertencia: ${res.message}`, 'error');
+      this.updateDbStatusBadge();
+    }
+  }
+
+  handleDisconnectSupabase() {
+    SUPABASE_CONFIG.clearCredentials();
+    if (this.cfgUrlInput) this.cfgUrlInput.value = '';
+    if (this.cfgKeyInput) this.cfgKeyInput.value = '';
+    supabaseGameClient.init();
+    this.updateDbStatusBadge();
+    this.showDbFeedback('Desconectado. Ahora estás en Modo Local resiliente.', 'success');
+    setTimeout(() => this.closeModal(this.modalConfig), 1000);
+  }
+
+  showDbFeedback(msg, type) {
+    if (!this.dbFeedbackMsg) return;
+    this.dbFeedbackMsg.textContent = msg;
+    this.dbFeedbackMsg.className = `feedback-box ${type}`;
+  }
+
+  escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // --- LÓGICA CENTRAL DE PARTIDAS ---
 
   updateSoundIcon() {
     if (this.sound.isMuted) {
@@ -462,6 +791,10 @@ class TicTacToeGame {
       return;
     }
 
+    if (!this.matchStartTime) {
+      this.matchStartTime = Date.now();
+    }
+
     this.makeMove(index, this.currentPlayer);
 
     if (this.isGameOver) return;
@@ -473,6 +806,15 @@ class TicTacToeGame {
 
   makeMove(index, player) {
     this.board[index] = player;
+    this.totalMoves++;
+
+    // Registrar en historial de movimientos para replay
+    this.movesHistory.push({
+      step: this.totalMoves,
+      player,
+      cell: index,
+      time_ms: this.matchStartTime ? Date.now() - this.matchStartTime : 0
+    });
 
     const cell = this.cells[index];
     cell.textContent = player === 'X' ? '✕' : '◯';
@@ -498,7 +840,6 @@ class TicTacToeGame {
     this.isAiThinking = true;
     this.statusText.textContent = '🤖 La IA está pensando...';
 
-    // Retardo natural de 320ms para una experiencia agradable
     setTimeout(() => {
       if (this.isGameOver) {
         this.isAiThinking = false;
@@ -524,6 +865,7 @@ class TicTacToeGame {
 
   handleGameEnd(winData) {
     this.isGameOver = true;
+    const durationSeconds = this.matchStartTime ? Math.max(1, Math.round((Date.now() - this.matchStartTime) / 1000)) : 0;
 
     if (winData.winner === 'tie') {
       this.scores.ties++;
@@ -535,8 +877,8 @@ class TicTacToeGame {
       if (winner === 'X') {
         this.scores.x++;
         this.statusText.textContent = this.gameMode === 'pve'
-          ? '🎉 ¡Felicidades! Has ganado a la IA.'
-          : '🎉 ¡El Jugador X es el ganador!';
+          ? `🎉 ¡Felicidades ${this.playerName}! Venciste a la IA.`
+          : `🎉 ¡${this.playerName} (X) es el ganador!`;
         this.statusBanner.className = 'status-banner win-x';
       } else {
         this.scores.o++;
@@ -551,7 +893,6 @@ class TicTacToeGame {
       this.drawWinningStrike(winData.combo);
       this.sound.playWin();
 
-      // Confeti sólo si gana el humano en PvE o cualquiera en PvP
       if (this.gameMode === 'pvp' || winner === 'X') {
         this.confetti.burst(80);
       }
@@ -559,6 +900,24 @@ class TicTacToeGame {
 
     this.saveScores();
     this.updateScoresDisplay();
+
+    // Guardar partida en Supabase / Local History
+    const matchRecord = {
+      game_mode: this.gameMode,
+      difficulty: this.gameMode === 'pve' ? this.difficulty : null,
+      player_x_name: this.playerName,
+      player_o_name: this.gameMode === 'pve' ? 'IA' : 'Jugador O',
+      winner: winData.winner,
+      winning_combo: winData.combo,
+      total_moves: this.totalMoves,
+      duration_seconds: durationSeconds,
+      final_board: [...this.board],
+      moves_history: this.movesHistory
+    };
+
+    if (typeof supabaseGameClient !== 'undefined') {
+      supabaseGameClient.saveMatch(matchRecord);
+    }
   }
 
   highlightWinningCells(combo) {
@@ -571,9 +930,6 @@ class TicTacToeGame {
   drawWinningStrike(combo) {
     if (!combo) return;
 
-    // Coordenadas del centro de cada celda en el espacio 300x300 del SVG
-    // Columna 0: 50, Columna 1: 150, Columna 2: 250
-    // Fila 0: 50, Fila 1: 150, Fila 2: 250
     const coords = [
       { x: 50, y: 50 },   { x: 150, y: 50 },  { x: 250, y: 50 },
       { x: 50, y: 150 },  { x: 150, y: 150 }, { x: 250, y: 150 },
@@ -586,7 +942,6 @@ class TicTacToeGame {
     const p1 = coords[startCell];
     const p2 = coords[endCell];
 
-    // Extender la línea ligeramente más allá de los centros para un acabado elegante
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const length = Math.hypot(dx, dy);
@@ -613,6 +968,9 @@ class TicTacToeGame {
     this.currentPlayer = 'X';
     this.isGameOver = false;
     this.isAiThinking = false;
+    this.matchStartTime = null;
+    this.movesHistory = [];
+    this.totalMoves = 0;
 
     this.confetti.stop();
     this.strikeSvg.classList.remove('active');
@@ -639,7 +997,7 @@ class TicTacToeGame {
     if (this.currentPlayer === 'X') {
       this.cardX.classList.add('active-turn');
       this.cardO.classList.remove('active-turn');
-      this.statusText.textContent = 'Turno de las ✕ (Jugador X)';
+      this.statusText.textContent = `Turno de las ✕ (${this.playerName})`;
     } else {
       this.cardO.classList.add('active-turn');
       this.cardX.classList.remove('active-turn');
