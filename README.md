@@ -1,99 +1,83 @@
-# 🎮 Tres en Raya (Tic-Tac-Toe) con Supabase Cloud
+# 🎮 Tres en Raya (Tic-Tac-Toe) con Inteligencia Artificial Avanzada y Supabase
 
-Una versión moderna, elegante y reactiva del clásico juego de **Tres en Raya** construida con tecnologías web nativas (**HTML5**, **CSS3 con estética Glassmorphism & Neón**, **JavaScript ES6+**) y persistencia en la nube mediante **Supabase (PostgreSQL)**.
-
----
-
-## ⚡ ¿Qué información se guarda en la Base de Datos?
-
-El juego almacena los datos en **Supabase** a través de un esquema relacional con seguridad por filas (**Row Level Security - RLS**):
-
-### 1. Tabla `matches` (Historial de Partidas)
-Guarda la instantánea de cada partida completada:
-- **`id`** (`UUID`): Identificador único global.
-- **`created_at`** (`TIMESTAMPTZ`): Fecha y hora del encuentro.
-- **`game_mode`** (`TEXT`): `'pve'` (vs IA) o `'pvp'` (2 jugadores local).
-- **`difficulty`** (`TEXT`): `'easy'`, `'medium'`, `'hard'`.
-- **`player_x_name`** (`TEXT`): Apodo del Jugador X (ej. `"Danny"`).
-- **`player_o_name`** (`TEXT`): Apodo del Jugador O o `"IA"`.
-- **`winner`** (`TEXT`): Ganador (`'X'`, `'O'`, o `'tie'` para empate).
-- **`winning_combo`** (`INT2[]`): Casillas de la línea ganadora (ej. `[0, 4, 8]`).
-- **`total_moves`** (`INT2`): Cantidad de movimientos (5 a 9).
-- **`duration_seconds`** (`INT4`): Duración de la partida en segundos.
-- **`final_board`** (`TEXT[]`): Estado final del tablero de 9 casillas.
-- **`moves_history`** (`JSONB`): Secuencia cronológica movimiento a movimiento con marcas de tiempo (permite reproducir la partida).
-
-### 2. Tabla `player_stats` (Clasificación Global / Leaderboard)
-Calculado y actualizado automáticamente con un trigger en PostgreSQL:
-- **`player_name`**: Apodo del jugador.
-- **`games_played`**: Total de partidas.
-- **`wins`**, **`losses`**, **`ties`**: Victorias, derrotas y empates.
-- **`hard_ai_wins`**: Victorias conseguidas contra la IA en nivel Imposible (Minimax).
-- **`win_rate`**: Porcentaje de efectividad calculado (`wins / games_played * 100`).
-- **`win_streak`** y **`best_win_streak`**: Racha actual y récord histórico de victorias consecutivas.
+Una versión moderna, interactiva y reactiva del clásico **Tres en Raya** construida con tecnologías web nativas (**HTML5**, **CSS3 con estética Glassmorphism & Neón**, **JavaScript ES6+**), persistencia en la nube mediante **Supabase (PostgreSQL)** y un ecosistema de **Modelos de Inteligencia Artificial (Machine Learning & Agente LLM)**.
 
 ---
 
-## 🚀 Conexión con Supabase en 3 Pasos
+## 🧠 Motores de Inteligencia Artificial Disponibles
 
-### Paso 1: Crear proyecto en Supabase
-1. Ingresa a [https://supabase.com](https://supabase.com) y crea una cuenta o inicia sesión (gratis).
-2. Haz clic en **"New Project"** y asígnale un nombre (ej. `tres-en-raya`).
+El juego cuenta con un **Selector de Cerebro de IA** que permite enfrentar tres paradigmas distintos de computación:
 
-### Paso 2: Crear las tablas y políticas de seguridad
-1. En el menú lateral de Supabase, entra a **SQL Editor**.
-2. Abre el archivo local [`supabase_schema.sql`](file:///c:/Personal/Estudio/Dmc/Esp-Vibe-Coding-App/Antigravity/proyecto01/supabase_schema.sql).
-3. Copia todo su contenido, pégalo en el SQL Editor y presiona **Run**.
-4. ¡Listo! Se habrán creado las tablas `matches`, `player_stats`, los índices, las políticas RLS y el trigger automático.
+### 1. 🧠 Machine Learning (Reinforcement Learning / Q-Learning)
+- **¿Qué es?**: Un modelo de aprendizaje por refuerzo real con **Q-Table** que aprende mediante recompensas y castigos a partir de la ecuación de Bellman:
+  $$Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]$$
+- **Representación Canónica y 8 Simetrías:** El modelo mapea rotaciones y reflejos para generalizar instantáneamente cualquier posición del tablero.
+- **⚡ Auto-Entrenamiento (Self-Play):** Botón para entrenar al modelo en el navegador contra sí mismo simulando **1,000, 5,000 o 10,000 partidas** en micro-lotes sin congelar la interfaz.
+- **🎯 Heatmap Táctico:** Muestra en tiempo real sobre cada casilla libre el porcentaje de probabilidad y confianza del modelo (con resplandor esmeralda en jugadas maestras).
+- **💾 Exportar e Importar:** Permite descargar los pesos aprendidos en formato JSON o importarlos en cualquier momento.
 
-### Paso 3: Conectar la aplicación
-1. En Supabase ve a **Project Settings** > **API**.
-2. Copia la **Project URL** y la clave pública **anon (public)**.
-3. Abre el juego en tu navegador, haz clic en el botón superior **🟡 Modo Local** (o abre el modal de configuración) y pega ambas credenciales.
-4. Presiona **Guardar y Conectar**. El badge cambiará a **🟢 Supabase Activo**.
+### 2. ✨ Agente Cognitivo Gemini AI (Google LLM: `gemini-3.8-flash`)
+- **¿Qué es?**: Un rival inteligente con razonamiento estratégico y análisis en lenguaje natural impulsado por la API de Google Gemini.
+- **Structured Outputs (JSON Schema):** El modelo devuelve la jugada, la justificación táctica y un comentario reactivo.
+- **Personalidades Dinámicas:**
+  - 🔥 **Rival Competitivo:** Burlón, ingenioso y celebratorio.
+  - 🧘 **Maestro Zen:** Filosófico, reflexivo y pacífico.
+  - 🤖 **Cyber-AI:** Analítico, frío y calculador.
+- **Modo Simulado Automático:** Si no tienes API Key configurada, el agente funciona de manera simulada con análisis táctico local.
 
-> 💡 **Nota sobre modo Offline-First:** Si no configuras Supabase o estás sin conexión a internet, el juego funciona exactamente igual en modo local (`localStorage`), guardando tu historial y calculando el ranking sin producir ningún error.
+### 3. ⚙️ Algoritmo Clásico (Minimax)
+- Algoritmo de teoría de juegos con búsqueda exhaustiva en árbol.
+- Niveles: Fácil, Medio e Imposible (matemáticamente invencible).
+- Mantenido como línea base de comparación (Baseline).
 
 ---
 
-## 🕹️ Características del Juego
+## 🗄️ Persistencia en la Nube con Supabase
 
-- **🤖 IA con Algoritmo Minimax Invencible:** 3 niveles de dificultad (Fácil, Media, Imposible).
-- **👥 Modo 2 Jugadores:** Juega con otra persona por turnos en el mismo dispositivo.
-- **🏆 Ranking Global (Leaderboard):** Consulta el Top de mejores jugadores con medallas (🥇, 🥈, 🥉) y efectividad.
-- **📜 Historial en la Nube:** Revisa tus últimas partidas disputadas con estadísticas de duración y movimientos.
-- **🔊 Web Audio API:** Efectos sonoros sintetizados nativos con botón de silencio.
-- **✨ Efectos Visuales Neón:** Línea de victoria animada y explosión de confeti en `<canvas>`.
-- **✏️ Personalización de Apodo:** Cambia tu nombre en tiempo real para que tus victorias se registren a tu nombre.
+El juego incluye integración completa con **Supabase (PostgreSQL)**:
+- **`matches`:** Historial de partidas con ganador, duración, tablero final y secuencia de movimientos (`JSONB`).
+- **`player_stats`:** Clasificación global (Leaderboard) con victorias, derrotas, empates, victorias vs IA y tasa de victorias (`win_rate`), calculada automáticamente mediante triggers en la base de datos.
+- **Offline-First:** Si no configuras Supabase, funciona 100% de manera local con `localStorage` sin errores.
+
+---
+
+## 🚀 Cómo Jugar
+
+No requiere compilación ni instalación de paquetes (`npm`, etc.).
+
+### Abrir directamente:
+Haz doble clic en `index.html` o ejecuta en PowerShell:
+```powershell
+Start-Process index.html
+```
 
 ---
 
 ## 🧪 Pruebas Automatizadas
 
-Puedes verificar el correcto funcionamiento del motor de IA y de los módulos de Supabase ejecutando en la terminal:
-
+El proyecto cuenta con 3 suites de pruebas automatizadas:
 ```powershell
-node test_minimax.js
-node test_supabase_logic.js
+node test_ai_models.js      # Pruebas de Q-Learning, simetrías, 100 partidas y Gemini Agent
+node test_minimax.js        # Pruebas de Minimax clásico (0 derrotas en 100 partidas)
+node test_supabase_logic.js # Pruebas de payloads, RLS y fallback local de Supabase
 ```
-Ambas suites validan:
-- Las 8 combinaciones de victoria y condiciones de empate.
-- Que la IA Minimax nunca pierda una partida (0 derrotas en simulaciones probabilísticas).
-- Validación de payloads, guardado de partidas y cálculo de rankings locales y en la nube.
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📁 Estructura del Código
 
 ```
 proyecto01/
-├── index.html              # Interfaz accesible, modales y estructura
-├── style.css               # Tema Dark Glassmorphism, animaciones y modales
-├── script.js               # Lógica del juego, IA Minimax, Audio y Modales
-├── supabase_schema.sql      # Script SQL completo para Supabase (Tablas, RLS, Triggers)
-├── config.js               # Configuración desacoplada de credenciales
-├── supabaseClient.js       # Cliente de integración con Supabase y fallback local
-├── test_minimax.js         # Pruebas automatizadas de la IA
-├── test_supabase_logic.js  # Pruebas automatizadas de la lógica de Supabase
+├── index.html              # Interfaz accesible, modales, diálogo de IA y heatmap
+├── style.css               # Tema Dark Glassmorphism, animaciones y estilos de IA
+├── script.js               # Orquestador del juego, turnos y mediador de modelos
+├── qLearningModel.js       # Motor de Reinforcement Learning (Q-Learning y Self-Play)
+├── geminiAgent.js          # Agente cognitivo con Google Gemini 3.8 Flash y personalidades
+├── supabaseClient.js       # Cliente de datos para Supabase y fallback local
+├── supabase_schema.sql     # Esquema SQL para Supabase (tablas, RLS y triggers)
+├── config.js               # Configuración de credenciales de Supabase
+├── test_ai_models.js       # Pruebas del modelo Q-Learning y Agente Gemini
+├── test_minimax.js         # Pruebas del algoritmo Minimax
+├── test_supabase_logic.js  # Pruebas de la lógica de Supabase
 └── README.md               # Esta documentación
 ```

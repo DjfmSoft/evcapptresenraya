@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tres en Raya - Tic Tac Toe con Supabase</title>
+  <title>Tres en Raya - Inteligencia Artificial Avanzada</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -56,6 +56,7 @@
 
     <!-- Game Settings -->
     <section class="game-config" aria-label="Configuración de la partida">
+      <!-- Mode 1P vs 2P -->
       <div class="segmented-control mode-selector" role="group" aria-label="Modo de juego">
         <button id="mode-pve-btn" class="segment-btn active" data-mode="pve">
           <span class="btn-icon">🤖</span> 1 Jugador
@@ -65,13 +66,50 @@
         </button>
       </div>
 
-      <div id="difficulty-wrapper" class="difficulty-control">
-        <label for="difficulty-select" class="config-label">Dificultad IA:</label>
-        <div class="select-wrapper">
-          <select id="difficulty-select" class="styled-select" aria-label="Nivel de dificultad de la inteligencia artificial">
-            <option value="easy">Fácil (Principiante)</option>
-            <option value="medium">Media (Intermedio)</option>
-            <option value="hard" selected>Imposible (Minimax 🔥)</option>
+      <!-- AI Brain Engine Selector (Solo en modo 1P) -->
+      <div id="ai-engine-container" class="ai-engine-control">
+        <div class="ai-engine-header">
+          <label for="ai-brain-select" class="config-label">Cerebro de IA:</label>
+          <div class="select-wrapper">
+            <select id="ai-brain-select" class="styled-select" aria-label="Seleccionar modelo de inteligencia artificial">
+              <option value="qlearning" selected>🧠 Machine Learning (Q-Learning)</option>
+              <option value="gemini">✨ Gemini AI (Agente LLM)</option>
+              <option value="minimax">⚙️ Algoritmo Clásico (Minimax)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Subcontroles para Q-Learning -->
+        <div id="qlearning-controls" class="ai-subcontrols">
+          <button id="btn-open-train-modal" class="pill-btn primary-pill" title="Entrenar el modelo con miles de partidas de Self-Play">
+            ⚡ Entrenar Modelo
+          </button>
+          <button id="btn-toggle-heatmap" class="pill-btn secondary-pill" title="Ver probabilidades tácticas de victoria en cada casilla">
+            🎯 Heatmap: <span id="heatmap-status">OFF</span>
+          </button>
+        </div>
+
+        <!-- Subcontroles para Gemini AI -->
+        <div id="gemini-controls" class="ai-subcontrols hidden">
+          <div class="select-wrapper">
+            <select id="gemini-personality-select" class="styled-select-small" title="Personalidad del Agente Gemini">
+              <option value="competitivo">Rival Competitivo 🔥</option>
+              <option value="zen">Maestro Zen 🧘</option>
+              <option value="cyberpunk">Cyber-AI 🤖</option>
+            </select>
+          </div>
+          <button id="btn-open-gemini-cfg" class="pill-btn secondary-pill" title="Configurar tu Gemini API Key">
+            🔑 Clave API
+          </button>
+        </div>
+
+        <!-- Subcontroles para Minimax clásico -->
+        <div id="minimax-controls" class="ai-subcontrols hidden">
+          <label for="difficulty-select" class="config-label-small">Dificultad:</label>
+          <select id="difficulty-select" class="styled-select-small" aria-label="Nivel de dificultad clásica">
+            <option value="easy">Fácil</option>
+            <option value="medium">Media</option>
+            <option value="hard" selected>Imposible (Minimax)</option>
           </select>
         </div>
       </div>
@@ -99,12 +137,25 @@
       <div id="card-player-o" class="score-card player-o" aria-label="Puntos de Jugador O">
         <div class="player-info">
           <span class="player-symbol symbol-o">◯</span>
-          <span id="player-o-name" class="player-label">IA (O)</span>
+          <span id="player-o-name" class="player-label">IA (ML)</span>
         </div>
         <div id="score-o" class="score-value">0</div>
         <div class="turn-indicator">Su turno</div>
       </div>
     </section>
+
+    <!-- Interactive AI Speech Card (Diálogo y Análisis Táctico) -->
+    <div id="ai-dialogue-card" class="ai-dialogue-card" aria-live="polite">
+      <div class="ai-dialogue-avatar" id="ai-dialogue-avatar">🧠</div>
+      <div class="ai-dialogue-content">
+        <div class="ai-dialogue-header">
+          <span id="ai-dialogue-name" class="ai-name">Agente Q-Learning</span>
+          <span id="ai-dialogue-tag" class="ai-tag">Modelo Entrenado</span>
+        </div>
+        <p id="ai-dialogue-comment" class="ai-comment">¡Listo para la partida! Estoy analizando el tablero mediante probabilidades aprendidas.</p>
+        <div id="ai-dialogue-analysis" class="ai-analysis hidden"></div>
+      </div>
+    </div>
 
     <!-- Status Alert Banner -->
     <div id="status-banner" class="status-banner" role="status" aria-live="polite">
@@ -114,15 +165,42 @@
     <!-- Board Container -->
     <section class="board-container" aria-label="Tablero de juego">
       <div id="board" class="board" role="grid" aria-label="Tablero de 3 por 3 casillas">
-        <button class="cell" data-index="0" role="gridcell" aria-label="Casilla 1, fila 1 columna 1"></button>
-        <button class="cell" data-index="1" role="gridcell" aria-label="Casilla 2, fila 1 columna 2"></button>
-        <button class="cell" data-index="2" role="gridcell" aria-label="Casilla 3, fila 1 columna 3"></button>
-        <button class="cell" data-index="3" role="gridcell" aria-label="Casilla 4, fila 2 columna 1"></button>
-        <button class="cell" data-index="4" role="gridcell" aria-label="Casilla 5, fila 2 columna 2"></button>
-        <button class="cell" data-index="5" role="gridcell" aria-label="Casilla 6, fila 2 columna 3"></button>
-        <button class="cell" data-index="6" role="gridcell" aria-label="Casilla 7, fila 3 columna 1"></button>
-        <button class="cell" data-index="7" role="gridcell" aria-label="Casilla 8, fila 3 columna 2"></button>
-        <button class="cell" data-index="8" role="gridcell" aria-label="Casilla 9, fila 3 columna 3"></button>
+        <button class="cell" data-index="0" role="gridcell" aria-label="Casilla 1, fila 1 columna 1">
+          <span class="cell-mark"></span>
+          <span class="cell-prob hidden" data-prob="0"></span>
+        </button>
+        <button class="cell" data-index="1" role="gridcell" aria-label="Casilla 2, fila 1 columna 2">
+          <span class="cell-mark"></span>
+          <span class="cell-prob hidden" data-prob="1"></span>
+        </button>
+        <button class="cell" data-index="2" role="gridcell" aria-label="Casilla 3, fila 1 columna 3">
+          <span class="cell-mark"></span>
+          <span class="cell-prob hidden" data-prob="2"></span>
+        </button>
+        <button class="cell" data-index="3" role="gridcell" aria-label="Casilla 4, fila 2 columna 1">
+          <span class="cell-mark"></span>
+          <span class="cell-prob hidden" data-prob="3"></span>
+        </button>
+        <button class="cell" data-index="4" role="gridcell" aria-label="Casilla 5, fila 2 columna 2">
+          <span class="cell-mark"></span>
+          <span class="cell-prob hidden" data-prob="4"></span>
+        </button>
+        <button class="cell" data-index="5" role="gridcell" aria-label="Casilla 6, fila 2 columna 3">
+          <span class="cell-mark"></span>
+          <span class="cell-prob hidden" data-prob="5"></span>
+        </button>
+        <button class="cell" data-index="6" role="gridcell" aria-label="Casilla 7, fila 3 columna 1">
+          <span class="cell-mark"></span>
+          <span class="cell-prob hidden" data-prob="6"></span>
+        </button>
+        <button class="cell" data-index="7" role="gridcell" aria-label="Casilla 8, fila 3 columna 2">
+          <span class="cell-mark"></span>
+          <span class="cell-prob hidden" data-prob="7"></span>
+        </button>
+        <button class="cell" data-index="8" role="gridcell" aria-label="Casilla 9, fila 3 columna 3">
+          <span class="cell-mark"></span>
+          <span class="cell-prob hidden" data-prob="8"></span>
+        </button>
 
         <!-- SVG overlay for winning stroke line -->
         <svg id="strike-svg" class="strike-svg" viewBox="0 0 300 300" aria-hidden="true">
@@ -143,7 +221,7 @@
   </main>
 
   <!-- ======================================================== -->
-  <!-- MODALES: LEADERBOARD, HISTORIAL Y CONFIGURACIÓN SUPABASE -->
+  <!-- MODALES: LEADERBOARD, HISTORIAL, Q-LEARNING Y GEMINI     -->
   <!-- ======================================================== -->
 
   <!-- Modal Leaderboard -->
@@ -177,6 +255,90 @@
       <div class="modal-body">
         <div id="history-content" class="history-list-container">
           <div class="loading-spinner">Cargando partidas recientes...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Entrenamiento Q-Learning (Machine Learning) -->
+  <div id="modal-qlearning-train" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="train-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="train-title" class="modal-title">🧠 Entrenar Modelo de Machine Learning</h2>
+          <p class="modal-subtitle">Aprendizaje por Refuerzo con Q-Learning y Self-Play</p>
+        </div>
+        <button class="close-modal-btn" data-close="modal-qlearning-train" aria-label="Cerrar modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="model-metrics-grid">
+          <div class="metric-card">
+            <span class="metric-value" id="train-metric-states">0</span>
+            <span class="metric-label">Estados Aprendidos</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-value" id="train-metric-games">0</span>
+            <span class="metric-label">Partidas Entrenadas</span>
+          </div>
+        </div>
+
+        <div class="training-controls">
+          <p class="section-label">Simular partidas de Auto-Entrenamiento:</p>
+          <div class="train-buttons-grid">
+            <button class="action-btn secondary-btn" data-games="1000">⚡ +1,000 Partidas</button>
+            <button class="action-btn primary-btn" data-games="5000">🔥 +5,000 Partidas</button>
+            <button class="action-btn secondary-btn" data-games="10000">🚀 +10,000 Partidas</button>
+          </div>
+
+          <div id="training-progress-wrapper" class="progress-wrapper hidden">
+            <div class="progress-bar-bg">
+              <div id="training-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+            </div>
+            <span id="training-progress-text" class="progress-text">Entrenando... 0%</span>
+          </div>
+        </div>
+
+        <div class="model-actions-row">
+          <button id="btn-export-model" class="pill-btn secondary-pill">📥 Exportar Pesos (JSON)</button>
+          <button id="btn-reset-model" class="pill-btn danger-pill">🗑️ Reiniciar Cerebro</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Configuración Gemini AI -->
+  <div id="modal-gemini-config" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="gemini-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="gemini-modal-title" class="modal-title">✨ Agente Google Gemini AI</h2>
+          <p class="modal-subtitle">Conecta el modelo de lenguaje gemini-3.8-flash</p>
+        </div>
+        <button class="close-modal-btn" data-close="modal-gemini-config" aria-label="Cerrar modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="config-instructions">
+          <p>El agente analiza el tablero, toma decisiones estratégicas y comenta cada jugada con personalidad.</p>
+          <ol>
+            <li>Obtén tu clave gratuita en <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.</li>
+            <li>Pega tu <strong>API Key</strong> abajo (se guarda de forma segura únicamente en tu navegador).</li>
+          </ol>
+        </div>
+
+        <div class="form-group">
+          <label for="gemini-api-key-input" class="form-label">Google Gemini API Key:</label>
+          <input type="password" id="gemini-api-key-input" class="form-input" placeholder="AIzaSy...">
+        </div>
+
+        <div id="gemini-feedback-msg" class="feedback-box hidden"></div>
+
+        <div class="modal-actions">
+          <button type="button" id="btn-save-gemini" class="action-btn primary-btn">
+            💾 Guardar y Activar
+          </button>
+          <button type="button" id="btn-simulated-gemini" class="action-btn secondary-btn">
+            🤖 Usar Modo Simulado
+          </button>
         </div>
       </div>
     </div>
@@ -235,6 +397,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="supabaseClient.js"></script>
+  <script src="qLearningModel.js"></script>
+  <script src="geminiAgent.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
